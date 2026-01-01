@@ -3,7 +3,7 @@ name: WOM -> Discord
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "0 14 * * *"   # daily 14:00 UTC
+    - cron: "0 14 * * *"
 
 jobs:
   post:
@@ -14,8 +14,6 @@ jobs:
 
       - name: Debug - list files
         run: |
-          echo "REF: $GITHUB_REF"
-          echo "SHA: $GITHUB_SHA"
           pwd
           ls -la
 
