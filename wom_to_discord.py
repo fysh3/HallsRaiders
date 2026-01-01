@@ -1,46 +1,57 @@
 import os
+import json
 import requests
-from datetime import datetime, timezone
 
-DISCORD_WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
 GROUP_ID = os.environ["WOM_GROUP_ID"]
+WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
 
-METRIC = os.getenv("WOM_METRIC", "overall")   # overall = total XP
-PERIOD = os.getenv("WOM_PERIOD", "day")       # day/week/month
-LIMIT = int(os.getenv("WOM_LIMIT", "5"))      # top N members
+STATE_FILE = "known_members.json"
 
-def get_group_gains(group_id: str, metric: str, period: str, limit: int):
-    url = f"https://api.wiseoldman.net/v2/groups/{group_id}/gained"
-    r = requests.get(url, params={"metric": metric, "period": period, "limit": limit}, timeout=30)
-    r.raise_for_status()
-    return r.json()
-
-def post_to_discord(content: str):
-    r = requests.post(DISCORD_WEBHOOK_URL, json={"content": content}, timeout=30)
-    r.raise_for_status()
-
-def fmt_num(n):
+def load_known():
     try:
-        return f"{int(n):,}"
-    except Exception:
-        return str(n)
+        with open(STATE_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return set(m["username"] for m in data.get("members", []))
+    except FileNotFoundError:
+        return set()
+
+def save_known(members):
+    with open(STATE_FILE, "w", encoding="utf-8") as f:
+        json.dump(
+            {"members": [{"username": m} for m in sorted(members, key=str.lower)]},
+            f,
+            indent=2
+        )
+
+def fetch_current_members():
+    url = f"https://api.wiseoldman.net/v2/groups/{GROUP_ID}/members"
+    r = requests.get(url, timeout=30)
+    r.raise_for_status()
+    return set(m["username"] for m in r.json())
+
+def post_welcome(new_members):
+    if not new_members:
+        return
+
+    lines = ["🎉 **Welcome to the clan!** 🎉", ""]
+    for name in new_members:
+        lines.append(f"👋 **{name}**")
+
+    requests.post(WEBHOOK_URL, json={"content": "\n".join(lines)}, timeout=30)
 
 def main():
-    rows = get_group_gains(GROUP_ID, METRIC, PERIOD, LIMIT)
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    known = load_known()
+    current = fetch_current_members()
 
-    lines = [f"**WOM Clan Update** ({PERIOD}) — metric: **{METRIC}** — {now}"]
+    new_members = sorted(current - known, key=str.lower)
 
-    if not rows:
-        lines.append("_No results returned (group might be untracked or no activity)._")
-    else:
-        for i, entry in enumerate(rows, start=1):
-            player = entry.get("player", {})
-            name = player.get("displayName") or player.get("username") or "Unknown"
-            gained = entry.get("gained", 0)
-            lines.append(f"{i}. **{name}**: +{fmt_num(gained)}")
+    # First run: initialize without posting
+    if not known:
+        save_known(current)
+        return
 
-    post_to_discord("\n".join(lines))
+    post_welcome(new_members)
+    save_known(current)
 
 if __name__ == "__main__":
     main()
