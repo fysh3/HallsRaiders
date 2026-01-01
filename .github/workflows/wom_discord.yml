@@ -1,0 +1,30 @@
+name: WOM -> Discord
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 14 * * *"   # daily 14:00 UTC
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install requests
+
+      - name: Post WOM update
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          WOM_GROUP_ID: ${{ secrets.WOM_GROUP_ID }}
+          WOM_METRIC: overall
+          WOM_PERIOD: day
+          WOM_LIMIT: "5"
+        run: python wom_to_discord.py
