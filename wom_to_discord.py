@@ -24,34 +24,63 @@ def save_known(members):
         )
 
 def fetch_current_members():
-    url = f"https://api.wiseoldman.net/v2/groups/{GROUP_ID}/members"
-    r = requests.get(url, timeout=30)
-    r.raise_for_status()
-    return set(m["username"] for m in r.json())
+    """
+    WOM group membership endpoints have changed across versions.
+    This tries a couple of known patterns and extracts usernames safely.
+    """
+    candidates = [
+        f"https://api.wiseoldman.net/v2/groups/{GROUP_ID}",          # group details (often includes memberships)
+        f"https://api.wiseoldman.net/v2/groups/{GROUP_ID}/members",  # some deployments had this
+    ]
 
-def post_welcome(new_members):
-    if not new_members:
-        return
+    last_error = None
 
-    lines = ["🎉 **Welcome to the clan!** 🎉", ""]
-    for name in new_members:
-        lines.append(f"👋 **{name}**")
+    for url in candidates:
+        try:
+            r = requests.get(url, timeout=30)
+            if r.status_code == 404:
+                last_error = f"404 at {url}"
+                continue
+            r.raise_for_status()
+            data = r.json()
 
-    requests.post(WEBHOOK_URL, json={"content": "\n".join(lines)}, timeout=30)
+            # Pattern A: data has "memberships": [ { "player": { "username": ... } } ]
+            if isinstance(data, dict) and "memberships" in data and isinstance(data["memberships"], list):
+                usernames = set()
+                for m in data["memberships"]:
+                    player = (m or {}).get("player") or {}
+                    u = player.get("username")
+                    if u:
+                        usernames.add(u)
+                if usernames:
+                    return usernames
 
-def main():
-    known = load_known()
-    current = fetch_current_members()
+            # Pattern B: data has "members": [ { "username": ... } ] or similar
+            if isinstance(data, dict) and "members" in data and isinstance(data["members"], list):
+                usernames = set()
+                for m in data["members"]:
+                    u = (m or {}).get("username") or (m or {}).get("displayName")
+                    if u:
+                        usernames.add(u)
+                if usernames:
+                    return usernames
 
-    new_members = sorted(current - known, key=str.lower)
+            # Pattern C: endpoint returns a list directly
+            if isinstance(data, list):
+                usernames = set()
+                for m in data:
+                    u = (m or {}).get("username") or (m or {}).get("displayName")
+                    if u:
+                        usernames.add(u)
+                if usernames:
+                    return usernames
 
-    # First run: initialize without posting
-    if not known:
-        save_known(current)
-        return
+            # If we got here, the endpoint worked but structure is unexpected
+            raise RuntimeError(f"Unexpected response shape from {url}: keys={list(data.keys()) if isinstance(data, dict) else type(data)}")
 
-    post_welcome(new_members)
-    save_known(current)
+        except Exception as e:
+            last_error = str(e)
 
-if __name__ == "__main__":
-    main()
+    raise RuntimeError(
+        "Could not fetch members. "
+        "Likel
