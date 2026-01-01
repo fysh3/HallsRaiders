@@ -23,22 +23,6 @@ jobs:
       - name: Install deps
         run: pip install requests
 
-      # Optional one-time test. Run once, confirm message appears, then delete this step.
-      - name: Test CLAN_GAINS webhook
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.CLAN_GAINS }}
-        run: |
-          python - << 'PY'
-          import os, requests
-          r = requests.post(
-              os.environ["DISCORD_WEBHOOK_URL"],
-              json={"content":"✅ Milestones webhook connected"},
-              timeout=30
-          )
-          print("status:", r.status_code)
-          r.raise_for_status()
-          PY
-
       - name: Check milestone achievements
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.CLAN_GAINS }}
