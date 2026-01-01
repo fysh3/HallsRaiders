@@ -12,6 +12,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Debug - list files
+        run: |
+          echo "REF: $GITHUB_REF"
+          echo "SHA: $GITHUB_SHA"
+          pwd
+          ls -la
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -27,4 +34,4 @@ jobs:
           WOM_METRIC: overall
           WOM_PERIOD: day
           WOM_LIMIT: "5"
-        run: python wom_to_discord.py
+        run: python ./wom_to_discord.py
