@@ -3,7 +3,9 @@ name: WOM -> Discord
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "0 14 * * *"   # daily at 14:00 UTC
+  - cron: "0 * * * *"
+
+
 
 permissions:
   contents: write
