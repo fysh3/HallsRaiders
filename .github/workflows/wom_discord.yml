@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: "0 14 * * *"   # daily at 14:00 UTC
 
+permissions:
+  contents: write
+
 jobs:
   post:
     runs-on: ubuntu-latest
@@ -22,11 +25,16 @@ jobs:
       - name: Install deps
         run: pip install requests
 
-      - name: Post WOM update
+      - name: Run WOM welcome check
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           WOM_GROUP_ID: ${{ secrets.WOM_GROUP_ID }}
-          WOM_METRIC: overall
-          WOM_PERIOD: day
-          WOM_LIMIT: "5"
         run: python ./wom_to_discord.py
+
+      - name: Save known members state
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add known_members.json
+          git commit -m "Update known members" || echo "No changes"
+          git push
