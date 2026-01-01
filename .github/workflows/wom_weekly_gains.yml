@@ -1,9 +1,10 @@
-name: WOM -> Milestone Notifications
+name: WOM -> Weekly Top XP
 
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: "0 * * * *"   # every 60 minutes (UTC)
+    # Every Monday at 14:00 UTC (adjust if you want)
+    - cron: "0 14 * * 1"
 
 permissions:
   contents: write
@@ -23,18 +24,18 @@ jobs:
       - name: Install deps
         run: pip install requests
 
-      - name: Check milestone achievements
+      - name: Post weekly top XP gained
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.CLAN_GAINS }}
           WOM_GROUP_ID: ${{ secrets.WOM_GROUP_ID }}
-          # Optional: if max total ever changes, override here
-          # WOM_MAX_TOTAL: "2277"
-        run: python ./wom_milestones_to_discord.py
+          TOP_N: "10"
+        run: python ./wom_weekly_gains_to_discord.py
 
-      - name: Save milestone state
+      - name: Save weekly gains state
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add known_milestones.json
-          git commit -m "Update milestone state" || echo "No changes"
+          test -f weekly_gains_state.json || echo '{"last_posted_week":""}' > weekly_gains_state.json
+          git add weekly_gains_state.json
+          git commit -m "Update weekly gains state" || echo "No changes"
           git push
