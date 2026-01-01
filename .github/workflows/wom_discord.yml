@@ -2,6 +2,8 @@ name: WOM -> Discord
 
 on:
   workflow_dispatch: {}
+  schedule:
+    - cron: "0 14 * * *"   # daily at 14:00 UTC
 
 jobs:
   post:
@@ -11,15 +13,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
-
-      - name: Debug - where am I and what files exist
-        run: |
-          echo "REF=$GITHUB_REF"
-          echo "SHA=$GITHUB_SHA"
-          pwd
-          ls -la
-          echo "---- find ----"
-          find . -maxdepth 3 -type f -print
 
       - name: Setup Python
         uses: actions/setup-python@v5
