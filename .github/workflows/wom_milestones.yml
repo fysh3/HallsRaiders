@@ -1,0 +1,56 @@
+name: WOM -> Milestone Notifications
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 * * * *"   # every 60 minutes (UTC)
+
+permissions:
+  contents: write
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install requests
+
+      # Optional one-time test. Run once, confirm message appears, then delete this step.
+      - name: Test CLAN_GAINS webhook
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.CLAN_GAINS }}
+        run: |
+          python - << 'PY'
+          import os, requests
+          r = requests.post(
+              os.environ["DISCORD_WEBHOOK_URL"],
+              json={"content":"✅ Milestones webhook connected"},
+              timeout=30
+          )
+          print("status:", r.status_code)
+          r.raise_for_status()
+          PY
+
+      - name: Check milestone achievements
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.CLAN_GAINS }}
+          WOM_GROUP_ID: ${{ secrets.WOM_GROUP_ID }}
+          # Optional: if max total ever changes, override here
+          # WOM_MAX_TOTAL: "2277"
+        run: python ./wom_milestones_to_discord.py
+
+      - name: Save milestone state
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add known_milestones.json
+          git commit -m "Update milestone state" || echo "No changes"
+          git push
