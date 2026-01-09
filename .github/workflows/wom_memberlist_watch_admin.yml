@@ -1,0 +1,39 @@
+name: WOM -> Member List Watch (Admin)
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "*/30 * * * *"   # every 30 minutes (UTC)
+
+permissions:
+  contents: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install requests
+
+      - name: Check WOM member list changes
+        env:
+          WOM_GROUP_ID: ${{ secrets.WOM_GROUP_ID }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.ADMIN_ALERTS }}
+        run: python ./wom_memberlist_watch.py
+
+      - name: Save updated state
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          test -f known_members.json || echo '{"members":[]}' > known_members.json
+          git add known_members.json
+          git commit -m "Update WOM member list state" || echo "No changes"
+          git push
